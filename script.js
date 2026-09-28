@@ -1,124 +1,462 @@
 /* ================= CONFIGURACIÓN ================= */
-const WA_NUMBER = "5217441371570";
-const BANCO     = "Santander";
-const TITULAR   = "Wendy Laura Cruz Cruz";
-const CLABE     = "0141 8055 7944 8836 08";
-const CUENTA    = "5579 0700 7210 0376";
-const LOGO_PATH = "img/logo.png";
+const WA_NUMBER = "5217442861594";
 const DIAS_MINIMOS = 2;
+const PORCENTAJE_ANTICIPO = 0.5; // 50%
 
-/* ================= CATÁLOGO DE PASTELES ================= */
-const IMG_PASTELES = {
-  'Chicas Superpoderosas': 'img/pastel_chicas_superpoderosas.jpg',
-  'Dinosaurios':           'img/pastel_dinosaurios.jpg',
-  'Modelo':                'img/pastel_modelo.jpg',
-  'One Piece':             'img/pastel_onepiece.jpg',
-  'Paw Patrol':            'img/pastel_pawpatrol.jpg',
-  'XV Años':               'img/pastel_xv.jpg',
-  'Rosca':                 'img/rosca.jpg',
-  'Boda':                  'img/pastel_boda.jpg',
-  'Dragon Ball Z':         'img/pastel_dragonballz.jpg'
+const DATOS_BANCO = {
+  banco: 'Santander',
+  titular: 'Wendy Laura Cruz Cruz',
+  tarjeta: '5579 0700 7210 0376',
+  clabe: '0142 6160 5534 3834 81'
 };
 
+/* ================= CATÁLOGO DE PASTELES ================= */
+const PASTELES = {
+  'Planca Sencillo · 25 porciones': {
+    img: 'img/pastel_plancha.png',
+    tipos: { 'Básico': 450, 'Sin Leches': 500, '3 Leches': 700, 'Gourmet': 850 }
+  },
+  'Pastel Chico · 8-10 porciones': {
+    img: 'img/pastel_chico.png',
+    tipos: { 'Básico': 250, 'Sin Leches': 300, '3 Leches': 350, 'Gourmet': 400 }
+  },
+  'Pastel Alto · 30 porciones': {
+    img: 'img/pastel_alto.png',
+    tipos: { 'Básico': 800, 'Sin Leches': 950, '3 Leches': 1100, 'Gourmet': 1400 }
+  },
+  'Pastel de Pisos · 100 porciones': {
+    img: 'img/pastel_pisos.png',
+    tipos: { 'Básico': 2500, 'Sin Leches': 3000, '3 Leches': 4000, 'Gourmet': 5000 }
+  },
+  'K-POP HUNTERS · 50 porciones': {
+    img: 'img/pastel_kpop.png',
+    tipos: { 'Básico': 1000, 'Sin Leches': 1200, '3 Leches': 1500, 'Gourmet': 1800 }
+  }
+};
+
+/* ================= SABORES POR TIPO ================= */
+const SABORES = {
+  'Básico': [
+    'Crema Pastelera',
+    'Mermelada de Fresa',
+    'Mermelada de Frutos Rojos',
+    'Mermelada de Zarzamora',
+    'Mermelada de Durazno',
+    'Mermelada de Manzana',
+    'Tipo Americano Vainilla (no húmedo)',
+    'Tipo Americano Chocolate (no húmedo)'
+  ],
+  'Sin Leches': [
+    'Moka (húmedo sin leches)',
+    'Red Velvet (no húmedo)',
+    'Bajos en Azúcar (no húmedo)',
+    'Gluten Free (no húmedo)'
+  ],
+  '3 Leches': [
+    'Coco', 'Fresa', 'Mazapán', 'Vainilla',
+    'Chocolate', 'Café', 'Rompope', 'Chocomilk'
+  ],
+  'Gourmet': [
+    'Queso',
+    'Naranja'
+  ]
+};
+
+const ORDEN_TIPOS = ['Básico', 'Sin Leches', '3 Leches', 'Gourmet'];
+
 /* ================= ESTADO ================= */
-let folio = "PEDIDO-XXX-XXX-XX-XX-XXXX";
 let pastelSeleccionado = null;
-let precioSeleccionado = 1500;
-let anticipoSeleccionado = 900;
-let restanteSeleccionado = 600;
-let cotizacionImagen = null;
-let modalCallback = null;
-let tipoModalActual = 'pedido'; // 'pedido' o 'cotizacion'
-let mensajeWhatsAppPendiente = '';
-let archivoPDFPendiente = null; // Guarda el último PDF generado (objeto jsPDF)
-let tipoPDFPendiente = 'pedido'; // 'pedido' o 'cotizacion'
+let tipoSeleccionado = null;
+let precioSeleccionado = 0;
+let anticipoSeleccionado = 0;
+let restanteSeleccionado = 0;
 
-/* ================= HELPERS DE FOLIO ================= */
-function limpiarTexto(txt){
-  return String(txt || '')
-    .toUpperCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^A-Z0-9]/g, '');
+/* ================= HELPERS ================= */
+const val = id => {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+};
+
+function setTxt(id, texto){
+  const el = document.getElementById(id);
+  if(el) el.textContent = texto;
 }
 
-/* Solo el PRIMER nombre: "Victor Daniel" → "VICTOR" */
-function primerNombre(nombre){
-  const limpio = String(nombre || '').trim();
-  const partes = limpio.split(/\s+/);
-  return limpiarTexto(partes[0]) || 'CLIENTE';
+function formatearPrecio(n){
+  return '$' + n.toLocaleString('es-MX');
 }
 
-function formatearFechaFolio(fechaISO){
-  const d = fechaISO ? new Date(fechaISO + 'T00:00:00') : new Date();
-  const dd = String(d.getDate()).padStart(2,'0');
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  const yyyy = d.getFullYear();
-  return `${dd}-${mm}-${yyyy}`;
+function calcularFechaMinima(){
+  const hoy = new Date();
+  const minFecha = new Date(hoy);
+  minFecha.setDate(minFecha.getDate() + DIAS_MINIMOS);
+  return minFecha.toISOString().split('T')[0];
 }
 
-function generarFolioPedido(nombre, pastel, fechaISO){
-  const n = primerNombre(nombre);
-  const p = limpiarTexto(pastel) || 'PASTEL';
-  const f = formatearFechaFolio(fechaISO);
-  return `PEDIDO-${n}-${p}-${f}`;
+/* ================= MODAL DE ERROR (SIN ALERT) ================= */
+function mostrarError(mensaje, detalle){
+  const modal = document.getElementById('modalError');
+  if(!modal){
+    console.warn('Error:', mensaje);
+    return;
+  }
+  setTxt('errorTitulo', mensaje || 'Favor de completar todos los campos obligatorios.');
+  setTxt('errorTexto', detalle || 'Revisa los campos marcados con (*) e intenta de nuevo.');
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
 }
 
-function generarFolioCotizacion(nombre, sabor, fechaISO){
-  const n = primerNombre(nombre);
-  const s = limpiarTexto(sabor) || 'PASTEL';
-  const f = formatearFechaFolio(fechaISO);
-  return `COTIZACION-${n}-${s}-${f}`;
+function cerrarModalError(){
+  const modal = document.getElementById('modalError');
+  if(!modal) return;
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
 }
 
-/* ================= SELECCIONAR PASTEL ================= */
-function seleccionarPastel(nombre, precio){
-  pastelSeleccionado = nombre;
-  precioSeleccionado = precio;
-  anticipoSeleccionado = Math.round(precio * 0.6);
-  restanteSeleccionado = precio - anticipoSeleccionado;
+/* ================= WIZARD ================= */
+function mostrarWizard(){
+  const wiz = document.getElementById('wizard-pedido');
+  if(wiz){
+    wiz.hidden = false;
+    void wiz.offsetHeight;
+  }
+}
+
+function ocultarWizard(){
+  const wiz = document.getElementById('wizard-pedido');
+  if(wiz) wiz.hidden = true;
+}
+
+function scrollAlWizard(){
+  const wiz = document.getElementById('wizard-pedido');
+  if(!wiz || wiz.hidden) return;
+  setTimeout(() => {
+    const y = wiz.getBoundingClientRect().top + window.pageYOffset - 80;
+    window.scrollTo({ top: y, behavior: 'smooth' });
+  }, 120);
+}
+
+/* ================= MODAL PEDIDO (POR PEDIDO) ================= */
+function abrirModalPedido(nombrePastel){
+  const modal = document.getElementById('modalPedidoPastel');
+  if(!modal) return;
+
+  const form = document.getElementById('formPedido');
+  if(form) form.reset();
+
+  const el = document.getElementById('p-pastel');
+  if(el) el.value = nombrePastel;
+
+  setTxt('pedidoTitulo', `Pedir: ${nombrePastel}`);
+
+  const fechaInput = document.getElementById('p-fecha');
+  if(fechaInput) fechaInput.min = calcularFechaMinima();
+
+  // Resetear selector de sabor (depende del tipo)
+  resetearSaborPedido();
+
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+
+function cerrarModalPedido(){
+  const modal = document.getElementById('modalPedidoPastel');
+  if(!modal) return;
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+}
+
+function resetearSaborPedido(){
+  const select = document.getElementById('p-sabor');
+  if(!select) return;
+  select.innerHTML = '<option value="">Primero elige un tipo</option>';
+}
+
+function cargarSaboresPedido(tipo){
+  const select = document.getElementById('p-sabor');
+  if(!select) return;
+
+  select.innerHTML = '<option value="">Selecciona un sabor</option>';
+
+  const lista = SABORES[tipo] || [];
+  if(lista.length === 0){
+    select.innerHTML = '<option value="">No hay sabores para este tipo</option>';
+    return;
+  }
+
+  lista.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s;
+    select.appendChild(opt);
+  });
+}
+
+/* ================= ENVIAR PEDIDO ================= */
+function enviarPedidoPastel(){
+  const pastel      = val('p-pastel');
+  const nombre      = val('p-nombre');
+  const telefono    = val('p-telefono');
+  const tipo        = val('p-tipo');
+  const sabor       = val('p-sabor');
+  const porciones   = val('p-porciones');
+  const fecha       = val('p-fecha');
+  const hora        = val('p-hora');
+  const entrega     = val('p-entrega');
+  const direccion   = val('p-direccion');
+  const dedicatoria = val('p-dedicatoria');
+
+  if(!nombre){
+    mostrarError('Favor de completar todos los campos obligatorios.', 'Falta tu nombre.');
+    document.getElementById('p-nombre').focus();
+    return;
+  }
+  if(!tipo){
+    mostrarError('Favor de completar todos los campos obligatorios.', 'Falta elegir el tipo de pastel.');
+    document.getElementById('p-tipo').focus();
+    return;
+  }
+  if(!sabor){
+    mostrarError('Favor de completar todos los campos obligatorios.', 'Falta elegir el sabor.');
+    document.getElementById('p-sabor').focus();
+    return;
+  }
+  if(!porciones){
+    mostrarError('Favor de completar todos los campos obligatorios.', 'Falta indicar las porciones aproximadas.');
+    document.getElementById('p-porciones').focus();
+    return;
+  }
+  if(!fecha){
+    mostrarError('Favor de completar todos los campos obligatorios.', 'Falta elegir la fecha del evento.');
+    document.getElementById('p-fecha').focus();
+    return;
+  }
+
+  // Validar fecha mínima
+  const fechaEvento = new Date(fecha + 'T00:00:00');
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const diff = Math.ceil((fechaEvento - hoy) / 86400000);
+  if(diff < DIAS_MINIMOS){
+    mostrarError('Para pedir tu pastel necesitas 2 días de anticipación.', 'Elige una fecha posterior.');
+    document.getElementById('p-fecha').focus();
+    return;
+  }
+
+  const mensaje = `Hola Pastelería Los Ángeles 🎂
+
+Quiero pedir un *${pastel}*.
+
+*Nombre:* ${nombre}${telefono ? `\n*WhatsApp:* ${telefono}` : ''}
+*Tipo:* ${tipo}
+*Sabor:* ${sabor}
+*Porciones:* ${porciones}
+*Fecha del evento:* ${fecha}${hora ? ` a las ${hora}` : ''}
+*Tipo de entrega:* ${entrega}${entrega === 'A domicilio' && direccion ? `\n*Dirección:* ${direccion}` : ''}${dedicatoria ? `\n*Dedicatoria:* ${dedicatoria}` : ''}
+
+📸 *Recuerda abjuntar captura del pastel.`;
+
+  const url = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(mensaje)}`;
+  cerrarModalPedido();
+  setTimeout(() => window.open(url, '_blank'), 200);
+}
+
+/* ================= COTIZACIÓN ================= */
+function abrirModalCotizacion(){
+  const modal = document.getElementById('modalCotizacion');
+  if(!modal) return;
+
+  const form = document.getElementById('formCotizacion');
+  if(form) form.reset();
+
+  const cFecha = document.getElementById('c-fecha');
+  if(cFecha) cFecha.min = calcularFechaMinima();
+
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+
+function cerrarModalCotizacion(){
+  const modal = document.getElementById('modalCotizacion');
+  if(!modal) return;
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+}
+
+function enviarCotizacion(){
+  const nombre      = val('c-nombre');
+  const tipo        = val('c-tipo');
+  const ocasion     = val('c-ocasion');
+  const porciones   = val('c-porciones');
+  const fecha       = val('c-fecha');
+  const descripcion = val('c-descripcion');
+
+  if(!nombre){
+    mostrarError('Favor de completar todos los campos obligatorios.', 'Falta tu nombre.');
+    document.getElementById('c-nombre').focus();
+    return;
+  }
+  if(!descripcion){
+    mostrarError('Favor de completar todos los campos obligatorios.', 'Cuéntanos qué pastel quieres.');
+    document.getElementById('c-descripcion').focus();
+    return;
+  }
+
+  // Validar fecha si la escribió
+  if(fecha){
+    const fechaEvento = new Date(fecha + 'T00:00:00');
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    const diff = Math.ceil((fechaEvento - hoy) / 86400000);
+    if(diff < DIAS_MINIMOS){
+      mostrarError('Para pedir tu pastel necesitas 2 días de anticipación.', 'Elige una fecha posterior.');
+      document.getElementById('c-fecha').focus();
+      return;
+    }
+  }
+
+  const mensaje = `Hola Pastelería Los Ángeles 🎂
+
+Quiero cotizar un pastel personalizado:
+
+*Nombre:* ${nombre}
+*Tipo:* ${tipo || 'No especificado'}
+*Ocasión:* ${ocasion || 'No especificada'}
+*Porciones:* ${porciones || 'No especificadas'}
+*Fecha:* ${fecha || 'Por definir'}
+
+*Descripción / Idea del pastel:*
+${descripcion}
+
+📸 *Voy a adjuntar una fotografía de referencia* para que me puedan dar una cotización más exacta.`;
+
+  const url = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(mensaje)}`;
+  cerrarModalCotizacion();
+  setTimeout(() => window.open(url, '_blank'), 200);
+}
+
+/* ================= WIZARD: ELEGIR PASTEL ================= */
+function elegirPastelPedido(nombrePastel){
+  if(!PASTELES[nombrePastel]){
+    mostrarError('Pastel no encontrado.', 'Intenta de nuevo.');
+    return;
+  }
+
+  mostrarWizard();
+
+  pastelSeleccionado = nombrePastel;
+  tipoSeleccionado = null;
+  precioSeleccionado = 0;
+  anticipoSeleccionado = 0;
+  restanteSeleccionado = 0;
 
   const el = document.getElementById('f-pastel');
-  if(el) el.value = nombre;
+  if(el) el.value = nombrePastel;
 
   document.querySelectorAll('.product-pick').forEach(p => {
-    p.classList.toggle('selected', p.dataset.pastel === nombre);
+    p.classList.toggle('selected', p.dataset.pastel === nombrePastel);
   });
 
+  renderTipos(nombrePastel);
+  actualizarPreciosLive();
   goStep(2);
 }
 
+function renderTipos(nombrePastel){
+  const grid = document.getElementById('tipoGrid');
+  if(!grid) return;
+
+  const tipos = PASTELES[nombrePastel].tipos;
+  grid.innerHTML = '';
+
+  ORDEN_TIPOS.forEach(tipo => {
+    const precio = tipos[tipo];
+    if(typeof precio !== 'number') return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tipo-option';
+    btn.dataset.tipo = tipo;
+    btn.dataset.precio = precio;
+
+    btn.innerHTML = `
+      <span class="tipo-nombre">${tipo}</span>
+      <span class="tipo-precio">${formatearPrecio(precio)}</span>
+      <span class="tipo-nota">${notaTipo(tipo)}</span>
+    `;
+
+    btn.addEventListener('click', () => seleccionarTipo(tipo, precio));
+    grid.appendChild(btn);
+  });
+}
+
+function notaTipo(tipo){
+  switch(tipo){
+    case 'Básico':     return 'Decorado sencillo';
+    case 'Sin Leches': return 'Sin lácteos';
+    case '3 Leches':   return 'Húmedo clásico';
+    case 'Gourmet':    return 'Sabor premium';
+    default:           return '';
+  }
+}
+
+function seleccionarTipo(tipo, precio){
+  tipoSeleccionado = tipo;
+  precioSeleccionado = precio;
+  anticipoSeleccionado = Math.round(precio * PORCENTAJE_ANTICIPO);
+  restanteSeleccionado = precio - anticipoSeleccionado;
+
+  document.querySelectorAll('.tipo-option').forEach(b => {
+    b.classList.toggle('selected', b.dataset.tipo === tipo);
+  });
+
+  actualizarPreciosLive();
+}
+
+function actualizarPreciosLive(){
+  setTxt('live-total',      formatearPrecio(precioSeleccionado));
+  setTxt('live-anticipo',   formatearPrecio(anticipoSeleccionado));
+  setTxt('live-restante',   formatearPrecio(restanteSeleccionado));
+  setTxt('aviso-anticipo',  formatearPrecio(anticipoSeleccionado));
+  setTxt('banco-anticipo',  formatearPrecio(anticipoSeleccionado));
+}
+
+/* ================= VALIDACIONES DEL WIZARD ================= */
 function validarPaso1(){
   if(!pastelSeleccionado){
-    alert('Por favor selecciona un pastel para continuar.');
+    mostrarError('Favor de seleccionar un pastel.', 'Elige un pastel para continuar.');
     return;
   }
   goStep(2);
 }
 
-/* ================= NAVEGACIÓN ================= */
-function goStep(n){
-  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-  const target = document.querySelector(`.step[data-step="${n}"]`);
-  if(target) target.classList.add('active');
-
-  document.querySelectorAll('.step-dot').forEach(d => {
-    const i = Number(d.dataset.bar);
-    d.classList.toggle('active', i === n);
-    d.classList.toggle('done', i < n);
-  });
-
-  if(n === 3) pintarResumen();
-  if(n === 4) pintarComprobante();
-  if(n === 5) pintarConcepto();
-
-  const w = document.querySelector('.wizard');
-  if(w) window.scrollTo({ top: w.offsetTop - 90, behavior: 'smooth' });
+function validarPaso2(){
+  if(!tipoSeleccionado){
+    mostrarError('Favor de seleccionar el tipo.', 'Elige un tipo de pastel.');
+    return;
+  }
+  cargarSabores(tipoSeleccionado);
+  const el = document.getElementById('f-tipo-display');
+  if(el) el.value = `${pastelSeleccionado} · ${tipoSeleccionado} — ${formatearPrecio(precioSeleccionado)}`;
+  goStep(3);
 }
 
-/* ================= VALIDACIÓN ================= */
-function validarPaso2(){
-  const campos = ['f-sabor','f-tamano','f-diseno','f-fecha','f-hora','f-nombre'];
+function validarPaso3(){
+  const sabor = val('f-sabor');
+  if(!sabor){
+    mostrarError('Favor de completar todos los campos obligatorios.', 'Falta elegir un sabor.');
+    document.getElementById('f-sabor').classList.add('err');
+    return;
+  }
+  goStep(4);
+}
+
+function validarPaso4(){
+  const campos = ['f-fecha','f-hora','f-nombre'];
   let ok = true;
 
   campos.forEach(id => {
@@ -130,7 +468,7 @@ function validarPaso2(){
   });
 
   if(!ok){
-    alert('Por favor completa todos los campos obligatorios (*)');
+    mostrarError('Favor de completar todos los campos obligatorios.', 'Revisa los campos marcados con (*).');
     return;
   }
 
@@ -140,21 +478,50 @@ function validarPaso2(){
   const diff = Math.ceil((fecha - hoy) / 86400000);
 
   if(diff < DIAS_MINIMOS){
-    alert(`El pedido requiere mínimo ${DIAS_MINIMOS} días de anticipación. Elige una fecha posterior.`);
+    mostrarError('Para pedir tu pastel necesitas 2 días de anticipación.', 'Elige una fecha posterior.');
     document.getElementById('f-fecha').classList.add('err');
     return;
   }
 
-  folio = generarFolioPedido(val('f-nombre'), pastelSeleccionado, fechaStr);
-
-  goStep(3);
+  goStep(5);
 }
 
-/* ================= HELPERS ================= */
-const val = id => {
-  const el = document.getElementById(id);
-  return el ? el.value.trim() : '';
-};
+function cargarSabores(tipo){
+  const select = document.getElementById('f-sabor');
+  if(!select) return;
+
+  select.innerHTML = '<option value="">Selecciona un sabor</option>';
+
+  const lista = SABORES[tipo] || [];
+  if(lista.length === 0){
+    select.innerHTML = '<option value="">(Sin sabores para este tipo)</option>';
+    return;
+  }
+
+  lista.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s;
+    select.appendChild(opt);
+  });
+}
+
+function goStep(n){
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  const target = document.querySelector(`.step[data-step="${n}"]`);
+  if(target) target.classList.add('active');
+
+  document.querySelectorAll('.step-dot').forEach(d => {
+    const i = Number(d.dataset.bar);
+    d.classList.toggle('active', i === n);
+    d.classList.toggle('done', i < n);
+  });
+
+  if(n === 5) pintarBanco();
+  if(n === 6) pintarResumen();
+
+  scrollAlWizard();
+}
 
 function formatearFecha(){
   const f = val('f-fecha');
@@ -166,811 +533,57 @@ function formatearFecha(){
   return `${dd}/${mm}/${d.getFullYear()} - ${h || '17:00'}`;
 }
 
-function setTxt(id, texto){
-  const el = document.getElementById(id);
-  if(el) el.textContent = texto;
+function pintarBanco(){
+  setTxt('banco-anticipo', formatearPrecio(anticipoSeleccionado));
 }
 
 function pintarResumen(){
   setTxt('r-pastel', pastelSeleccionado || '—');
+  setTxt('r-tipo', tipoSeleccionado || '—');
   setTxt('r-sabor', val('f-sabor') || '—');
-  setTxt('r-tamano', val('f-tamano') || '—');
-  setTxt('r-diseno', val('f-diseno') || '—');
+  setTxt('r-tamano', extraerTamano(pastelSeleccionado) || '—');
   setTxt('r-dedicatoria', val('f-dedicatoria') || 'Sin dedicatoria');
   setTxt('r-nombre', val('f-nombre') || '—');
   setTxt('r-entrega', formatearFecha());
-  setTxt('r-total', '$' + precioSeleccionado);
-  setTxt('r-anticipo', '$' + anticipoSeleccionado);
-  setTxt('r-restante', '$' + restanteSeleccionado);
+
+  const tipoEntrega = document.querySelector('input[name="tipo-entrega"]:checked');
+  setTxt('r-tipo-entrega', tipoEntrega ? tipoEntrega.value : '—');
+  setTxt('r-direccion', val('f-direccion') || '—');
+
+  setTxt('r-total',    formatearPrecio(precioSeleccionado));
+  setTxt('r-anticipo', formatearPrecio(anticipoSeleccionado));
+  setTxt('r-restante', formatearPrecio(restanteSeleccionado));
+  setTxt('aviso-anticipo', formatearPrecio(anticipoSeleccionado));
 }
 
-function pintarComprobante(){
-  setTxt('folio-display', folio);
+function extraerTamano(nombre){
+  const match = String(nombre || '').match(/(\d+[\s-]?\d*\s*porciones)/i);
+  return match ? match[1] : '';
 }
 
-function pintarConcepto(){
-  setTxt('concepto', folio);
-  setTxt('monto-anticipo', '$' + anticipoSeleccionado + '.00 MXN');
-}
-
-/* ================= COPIAR DATOS ================= */
-function copiarDatos(){
-  const texto =
-`DATOS PARA TRANSFERENCIA
-Banco: ${BANCO}
-Titular: ${TITULAR}
-CLABE: ${CLABE}
-Cuenta: ${CUENTA}
-Monto: $${anticipoSeleccionado}.00 MXN
-Concepto: ${folio}
-
-Pastelería Los Ángeles`;
-
-  const btn = document.getElementById('btnCopy');
-  const listo = () => {
-    if(btn){
-      btn.classList.add('ok');
-      btn.innerHTML = '✅ ¡DATOS COPIADOS!';
-      setTimeout(() => {
-        btn.classList.remove('ok');
-        btn.innerHTML = '📋 COPIAR DATOS';
-      }, 2200);
-    }
-  };
-
-  if(navigator.clipboard && window.isSecureContext){
-    navigator.clipboard.writeText(texto).then(listo).catch(() => fallback(texto, listo));
-  } else {
-    fallback(texto, listo);
-  }
-}
-
-function copiarDatosGenerales(){
-  const texto =
-`DATOS BANCARIOS - PASTELERÍA LOS ÁNGELES
-Banco: ${BANCO}
-Titular: ${TITULAR}
-CLABE: ${CLABE}
-Cuenta: ${CUENTA}
-
-Recuerda escribir el concepto (número de pedido) que aparece en tu comprobante PDF.`;
-
-  if(navigator.clipboard && window.isSecureContext){
-    navigator.clipboard.writeText(texto)
-      .then(() => alert('✅ Datos copiados al portapapeles'))
-      .catch(() => fallback(texto, () => alert('✅ Datos copiados')));
-  } else {
-    fallback(texto, () => alert('✅ Datos copiados'));
-  }
-}
-
-function fallback(texto, cb){
-  const ta = document.createElement('textarea');
-  ta.value = texto;
-  ta.style.position = 'fixed';
-  ta.style.opacity = '0';
-  document.body.appendChild(ta);
-  ta.select();
-  try { document.execCommand('copy'); cb(); }
-  catch(e){ alert('Copia manualmente:\n\n' + texto); }
-  document.body.removeChild(ta);
-}
-
-/* ================= CARGAR IMAGEN ================= */
-function cargarImagen(src){
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'Anonymous';
-
-    const timeout = setTimeout(() => {
-      reject(new Error('Timeout cargando: ' + src));
-    }, 8000);
-
-    img.onload = () => {
-      clearTimeout(timeout);
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        const ctx = canvas.getContext('2d');
-
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-
-        const esPNG = /\.png$/i.test(src);
-        const dataURL = esPNG
-          ? canvas.toDataURL('image/png')
-          : canvas.toDataURL('image/jpeg', 0.92);
-
-        resolve({ dataURL, esPNG });
-      } catch(e){
-        reject(e);
-      }
-    };
-
-    img.onerror = () => {
-      clearTimeout(timeout);
-      reject(new Error('No se pudo cargar: ' + src));
-    };
-
-    img.src = src;
-  });
-}
-
-function cargarImagenDesdeDataURL(dataURL){
-  return new Promise((resolve, reject) => {
-    const tmpImg = new Image();
-    tmpImg.onload = () => resolve({ width: tmpImg.width, height: tmpImg.height });
-    tmpImg.onerror = reject;
-    tmpImg.src = dataURL;
-  });
-}
-
-/* ================= MODAL ================= */
-function mostrarModal(opciones){
-  const overlay    = document.getElementById('modalOverlay');
-  const icon       = document.getElementById('modalIcon');
-  const title      = document.getElementById('modalTitle');
-  const text       = document.getElementById('modalText');
-  const fileNameEl = document.getElementById('modalFileName');
-  const instructions = document.getElementById('modalInstructions');
-  const btnPrincipal = document.getElementById('modalBtnPrincipal');
-  const btnReDescargar = document.getElementById('modalBtnReDescargar');
-
-  if(!overlay) return;
-
-  if(icon) icon.textContent = opciones.icon || '📄';
-  if(title) title.textContent = opciones.title || '¡Listo!';
-  if(text) text.innerHTML = opciones.text || '';
-  if(fileNameEl) fileNameEl.textContent = opciones.fileName || 'archivo.pdf';
-
-  tipoModalActual = opciones.tipo || 'pedido';
-  mensajeWhatsAppPendiente = opciones.mensajeWA || '';
-
-  // Ocultar instrucciones si es modal de cotización
-  if(instructions){
-    instructions.style.display = (opciones.showInstructions === false) ? 'none' : 'grid';
-  }
-
-  // Cambiar comportamiento del botón principal según el tipo de modal
-  if(btnPrincipal){
-    if(tipoModalActual === 'cotizacion'){
-      btnPrincipal.innerHTML = `
-        <svg class="ico-wa" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.464 3.488"/></svg>
-        📲 ENVIAR COTIZACIÓN POR WHATSAPP
-      `;
-      btnPrincipal.onclick = abrirWhatsAppDesdeModal;
-    } else {
-      btnPrincipal.innerHTML = `
-        <svg class="ico-wa" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.464 3.488"/></svg>
-        ✅ Ya guardé mi PDF, continuar
-      `;
-      btnPrincipal.onclick = continuarATransferir;
-    }
-  }
-
-  // Mostrar/ocultar botón de re-descarga según disponibilidad del PDF
-  if(btnReDescargar){
-    btnReDescargar.style.display = archivoPDFPendiente ? 'block' : 'none';
-  }
-
-  modalCallback = opciones.onWhatsApp || null;
-
-  overlay.classList.add('show');
-  overlay.setAttribute('aria-hidden', 'false');
-  document.body.style.overflow = 'hidden';
-}
-
-function cerrarModal(){
-  const overlay = document.getElementById('modalOverlay');
-  if(!overlay) return;
-  overlay.classList.remove('show');
-  overlay.setAttribute('aria-hidden', 'true');
-  document.body.style.overflow = '';
-}
-
-function abrirWhatsAppDesdeModal(){
-  cerrarModal();
-  const url = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(mensajeWhatsAppPendiente)}`;
-  window.open(url, '_blank');
-}
-
-function continuarATransferir(){
-  cerrarModal();
-  setTimeout(() => goStep(5), 300);
-}
-
-/* ================= VOLVER A DESCARGAR PDF (PARA SAFARI/iOS) ================= */
-function volverADescargarPDF(){
-  if(!archivoPDFPendiente){
-    alert('No hay PDF disponible para descargar. Intenta generar el pedido o cotización de nuevo.');
-    return;
-  }
-
-  try {
-    let nombreArchivo;
-
-    if(tipoPDFPendiente === 'cotizacion'){
-      nombreArchivo = archivoPDFPendiente._nombreArchivo || 'Cotizacion.pdf';
-    } else {
-      nombreArchivo = folio + '.pdf';
-    }
-
-    // Intentar descarga con doc.save()
-    archivoPDFPendiente.save(nombreArchivo);
-
-    // Feedback visual en el botón
-    const btn = document.getElementById('modalBtnReDescargar');
-    if(btn){
-      const textoOriginal = btn.innerHTML;
-      btn.innerHTML = '✅ ¡PDF descargado!';
-      btn.disabled = true;
-      setTimeout(() => {
-        btn.innerHTML = textoOriginal;
-        btn.disabled = false;
-      }, 2000);
-    }
-  } catch(e){
-    console.error('Error al re-descargar:', e);
-    // Fallback: abrir el PDF en una nueva pestaña (útil en Safari iOS)
-    try {
-      const blobURL = archivoPDFPendiente.output('bloburl');
-      window.open(blobURL, '_blank');
-    } catch(err){
-      alert('No se pudo descargar el PDF. Intenta de nuevo.');
-    }
-  }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const overlay = document.getElementById('modalOverlay');
-  if(overlay){
-    overlay.addEventListener('click', (e) => {
-      if(e.target === overlay) cerrarModal();
-    });
-  }
-});
-
-/* ================= GENERAR PDF DEL PEDIDO ================= */
-async function generarPDF(){
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-
-  const AZUL_OSCURO = [30, 95, 142];
-  const AZUL_PROF   = [15, 58, 92];
-  const NARANJA     = [255, 122, 26];
-  const DORADO      = [212, 162, 76];
-  const GRIS        = [74, 91, 108];
-  const VERDE       = [34, 139, 34];
-
-  const pageW = 210;
-  let y = 0;
-
-  doc.setFillColor(...AZUL_PROF);
-  doc.rect(0, 0, pageW, 40, 'F');
-  doc.setFillColor(...DORADO);
-  doc.rect(0, 40, pageW, 2, 'F');
-
-  try {
-    const logoResult = await cargarImagen(LOGO_PATH);
-    const logoFormato = logoResult.esPNG ? 'PNG' : 'JPEG';
-    doc.addImage(logoResult.dataURL, logoFormato, 12, 8, 26, 26, undefined, 'FAST');
-  } catch(e){
-    doc.setFillColor(255,255,255);
-    doc.circle(25, 21, 13, 'F');
-    doc.setTextColor(...AZUL_PROF);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(14);
-    doc.text('PAL', 25, 24, { align:'center' });
-  }
-
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(20);
-  doc.text('Pastelería Los Ángeles', 46, 18);
-
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(10);
-  doc.setTextColor(232, 244, 253);
-  doc.text('Pasteles con amor - Hechos artesanalmente', 46, 25);
-  doc.text('WhatsApp: +52 1 744 137 1570  ·  Facebook: /pastelesconamor2020', 46, 31);
-
-  y = 54;
-
-  doc.setTextColor(...AZUL_PROF);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(16);
-  doc.text('COMPROBANTE DE PEDIDO', pageW/2, y, { align:'center' });
-
-  y += 4;
-  doc.setDrawColor(...DORADO);
-  doc.setLineWidth(0.8);
-  doc.line(pageW/2 - 35, y, pageW/2 + 35, y);
-
-  y += 12;
-
-  doc.setFillColor(...AZUL_OSCURO);
-  doc.roundedRect(14, y, pageW - 28, 16, 3, 3, 'F');
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(11);
-  doc.text(folio, pageW/2, y + 10.5, { align:'center', maxWidth: pageW - 34 });
-
-  y += 26;
-
-  const imgPath = IMG_PASTELES[pastelSeleccionado];
-  let fotoCargada = false;
-
-  if(imgPath){
-    try {
-      const resultado = await cargarImagen(imgPath);
-      const imgData = resultado.dataURL;
-      const formato = resultado.esPNG ? 'PNG' : 'JPEG';
-
-      const dims = await cargarImagenDesdeDataURL(imgData);
-
-      const maxW = 90;
-      const maxH = 70;
-      const ratio = dims.width / dims.height;
-      let imgW = maxW;
-      let imgH = maxW / ratio;
-      if(imgH > maxH){
-        imgH = maxH;
-        imgW = maxH * ratio;
-      }
-
-      const imgX = (pageW - imgW) / 2;
-
-      doc.setDrawColor(...DORADO);
-      doc.setLineWidth(1.5);
-      doc.roundedRect(imgX - 3, y - 3, imgW + 6, imgH + 6, 3, 3, 'S');
-
-      doc.addImage(imgData, formato, imgX, y, imgW, imgH, undefined, 'FAST');
-      fotoCargada = true;
-
-      y += imgH + 12;
-    } catch(e){
-      console.warn('⚠️ No se pudo cargar la imagen del pastel:', e);
-    }
-  }
-
-  if(!fotoCargada){
-    doc.setDrawColor(...DORADO);
-    doc.setLineWidth(1);
-    doc.roundedRect(60, y, 90, 30, 3, 3, 'S');
-    doc.setTextColor(...GRIS);
-    doc.setFont('helvetica','italic');
-    doc.setFontSize(10);
-    doc.text('(Foto del pastel no disponible)', pageW/2, y + 17, { align:'center' });
-    y += 38;
-  }
-
-  doc.setFillColor(232, 244, 253);
-  doc.roundedRect(14, y, pageW - 28, 10, 2, 2, 'F');
-  doc.setTextColor(...AZUL_PROF);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(12);
-  doc.text('DATOS DEL CLIENTE Y DEL PEDIDO', 18, y + 7);
-
-  y += 16;
-
-  const lineas = [
-    ['Pastel:',            pastelSeleccionado || '—'],
-    ['Sabor:',             val('f-sabor') || '—'],
-    ['Tamaño:',            val('f-tamano') || '—'],
-    ['Diseño / Temática:', val('f-diseno') || '—'],
-    ['Dedicatoria:',       val('f-dedicatoria') || 'Sin dedicatoria'],
-    ['Recibe:',            val('f-nombre') || '—'],
-    ['Fecha de entrega:',  formatearFecha()]
-  ];
-
-  doc.setFontSize(11);
-  lineas.forEach(([label, value]) => {
-    doc.setFont('helvetica','bold');
-    doc.setTextColor(...AZUL_PROF);
-    doc.text(label, 18, y);
-
-    doc.setFont('helvetica','normal');
-    doc.setTextColor(...GRIS);
-    const valorLineas = doc.splitTextToSize(String(value), 110);
-    doc.text(valorLineas, 75, y);
-
-    y += 6 * valorLineas.length + 2;
-  });
-
-  y += 4;
-
-  if(y > 200){
-    doc.addPage();
-    y = 20;
-    doc.setFillColor(...AZUL_PROF);
-    doc.rect(0, 0, pageW, 15, 'F');
-    doc.setTextColor(255,255,255);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(11);
-    doc.text('COMPROBANTE DE PEDIDO - ' + folio, pageW/2, 10, { align:'center' });
-    y = 25;
-  }
-
-  doc.setDrawColor(...AZUL_OSCURO);
-  doc.setLineWidth(0.5);
-  doc.line(14, y, pageW - 14, y);
-  y += 8;
-
-  const totales = [
-    ['TOTAL',    '$' + precioSeleccionado,   NARANJA],
-    ['ANTICIPO', '$' + anticipoSeleccionado, VERDE],
-    ['RESTANTE', '$' + restanteSeleccionado, DORADO]
-  ];
-
-  totales.forEach(([label, valor, color]) => {
-    doc.setFillColor(245, 250, 254);
-    doc.roundedRect(14, y - 1, pageW - 28, 12, 2, 2, 'F');
-
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(11);
-    doc.setTextColor(...AZUL_PROF);
-    doc.text(label, 20, y + 7);
-
-    doc.setFontSize(14);
-    doc.setTextColor(...color);
-    doc.text(valor, pageW - 20, y + 7.5, { align:'right' });
-
-    y += 16;
-  });
-
-  if(y > 210){
-    doc.addPage();
-    y = 20;
-    doc.setFillColor(...AZUL_PROF);
-    doc.rect(0, 0, pageW, 15, 'F');
-    doc.setTextColor(255,255,255);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(11);
-    doc.text('DATOS BANCARIOS - ' + folio, pageW/2, 10, { align:'center' });
-    y = 25;
-  }
-
-  y += 4;
-  doc.setFillColor(...AZUL_PROF);
-  doc.roundedRect(14, y, pageW - 28, 42, 3, 3, 'F');
-
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(11);
-  doc.text('DATOS PARA TRANSFERENCIA', 20, y + 8);
-
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(10);
-  const bancos = [
-    `Banco: ${BANCO}`,
-    `Titular: ${TITULAR}`,
-    `CLABE: ${CLABE}`,
-    `Cuenta: ${CUENTA}`,
-    `Concepto: ${folio}`
-  ];
-  bancos.forEach((linea, i) => {
-    doc.text(linea, 20, y + 16 + i * 4.5);
-  });
-
-  y += 50;
-
-  doc.setFillColor(255, 247, 227);
-  doc.setDrawColor(...DORADO);
-  doc.setLineWidth(0.8);
-  doc.roundedRect(14, y, pageW - 28, 14, 3, 3, 'FD');
-
-  doc.setTextColor(138, 100, 16);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(11);
-  doc.text('ESTADO: ANTICIPO POR VERIFICAR', pageW/2, y + 9, { align:'center' });
-
-  y += 22;
-
-  doc.setDrawColor(...AZUL_OSCURO);
-  doc.setLineWidth(0.4);
-  doc.line(14, y, pageW - 14, y);
-  y += 8;
-
-  doc.setTextColor(...GRIS);
-  doc.setFont('helvetica','italic');
-  doc.setFontSize(9);
-  doc.text('Gracias por tu preferencia. Envía este PDF por WhatsApp para confirmar tu pedido.', pageW/2, y, { align:'center' });
-  y += 5;
-  doc.text('Pastelería Los Ángeles · Pasteles con amor', pageW/2, y, { align:'center' });
-
-  return doc;
-}
-
-/* ================= GENERAR PDF DE COTIZACIÓN ================= */
-async function generarPDFCotizacion(){
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-
-  const AZUL_OSCURO = [30, 95, 142];
-  const AZUL_PROF   = [15, 58, 92];
-  const DORADO      = [212, 162, 76];
-  const GRIS        = [74, 91, 108];
-
-  const pageW = 210;
-  let y = 0;
-
-  const nombre      = document.getElementById('c-nombre').value.trim() || '—';
-  const ocasion     = document.getElementById('c-ocasion').value || 'No especificada';
-  const sabor       = document.getElementById('c-sabor') ? (document.getElementById('c-sabor').value || '—') : '—';
-  const porciones   = document.getElementById('c-porciones').value || 'No especificadas';
-  const descripcion = document.getElementById('c-descripcion').value.trim() || '—';
-  const fecha       = document.getElementById('c-fecha').value || 'Por definir';
-  const presupuesto = document.getElementById('c-presupuesto').value.trim() || 'Por definir';
-
-  const folioCot = generarFolioCotizacion(
-    nombre,
-    sabor !== '—' ? sabor : 'PASTEL',
-    document.getElementById('c-fecha').value
-  );
-
-  doc.setFillColor(...AZUL_PROF);
-  doc.rect(0, 0, pageW, 40, 'F');
-  doc.setFillColor(...DORADO);
-  doc.rect(0, 40, pageW, 2, 'F');
-
-  try {
-    const logoResult = await cargarImagen(LOGO_PATH);
-    const logoFormato = logoResult.esPNG ? 'PNG' : 'JPEG';
-    doc.addImage(logoResult.dataURL, logoFormato, 12, 8, 26, 26, undefined, 'FAST');
-  } catch(e){
-    doc.setFillColor(255,255,255);
-    doc.circle(25, 21, 13, 'F');
-    doc.setTextColor(...AZUL_PROF);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(14);
-    doc.text('PAL', 25, 24, { align:'center' });
-  }
-
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(20);
-  doc.text('Pastelería Los Ángeles', 46, 18);
-
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(10);
-  doc.setTextColor(232, 244, 253);
-  doc.text('Cotización de pastel personalizado', 46, 25);
-  doc.text('WhatsApp: +52 1 744 137 1570  ·  Facebook: /pastelesconamor2020', 46, 31);
-
-  y = 54;
-
-  doc.setTextColor(...AZUL_PROF);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(16);
-  doc.text('TICKET DE COTIZACIÓN', pageW/2, y, { align:'center' });
-
-  y += 4;
-  doc.setDrawColor(...DORADO);
-  doc.setLineWidth(0.8);
-  doc.line(pageW/2 - 35, y, pageW/2 + 35, y);
-
-  y += 12;
-
-  doc.setFillColor(...AZUL_OSCURO);
-  doc.roundedRect(14, y, pageW - 28, 16, 3, 3, 'F');
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(11);
-  doc.text(folioCot, pageW/2, y + 10.5, { align:'center', maxWidth: pageW - 34 });
-
-  y += 26;
-
-  let fotoCargada = false;
-
-  if(cotizacionImagen && cotizacionImagen.dataURL){
-    try {
-      const esPNG = /^data:image\/png/i.test(cotizacionImagen.dataURL);
-      const formato = esPNG ? 'PNG' : 'JPEG';
-
-      const dims = await cargarImagenDesdeDataURL(cotizacionImagen.dataURL);
-
-      const maxW = 100;
-      const maxH = 80;
-      const ratio = dims.width / dims.height;
-      let imgW = maxW;
-      let imgH = maxW / ratio;
-      if(imgH > maxH){
-        imgH = maxH;
-        imgW = maxH * ratio;
-      }
-
-      const imgX = (pageW - imgW) / 2;
-
-      doc.setDrawColor(...DORADO);
-      doc.setLineWidth(1.5);
-      doc.roundedRect(imgX - 3, y - 3, imgW + 6, imgH + 6, 3, 3, 'S');
-
-      doc.addImage(cotizacionImagen.dataURL, formato, imgX, y, imgW, imgH, undefined, 'FAST');
-      fotoCargada = true;
-
-      y += imgH + 8;
-
-      doc.setTextColor(...GRIS);
-      doc.setFont('helvetica','italic');
-      doc.setFontSize(9);
-      doc.text('Imagen de referencia enviada por el cliente', pageW/2, y, { align:'center' });
-      y += 10;
-    } catch(e){
-      console.warn('⚠️ No se pudo cargar la imagen de referencia:', e);
-    }
-  }
-
-  if(!fotoCargada){
-    doc.setDrawColor(...DORADO);
-    doc.setLineWidth(1);
-    doc.roundedRect(60, y, 90, 25, 3, 3, 'S');
-    doc.setTextColor(...GRIS);
-    doc.setFont('helvetica','italic');
-    doc.setFontSize(10);
-    doc.text('(Sin imagen de referencia)', pageW/2, y + 15, { align:'center' });
-    y += 33;
-  }
-
-  if(y > 200){
-    doc.addPage();
-    y = 20;
-    doc.setFillColor(...AZUL_PROF);
-    doc.rect(0, 0, pageW, 15, 'F');
-    doc.setTextColor(255,255,255);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(11);
-    doc.text('TICKET DE COTIZACIÓN - ' + folioCot, pageW/2, 10, { align:'center' });
-    y = 25;
-  }
-
-  doc.setFillColor(232, 244, 253);
-  doc.roundedRect(14, y, pageW - 28, 10, 2, 2, 'F');
-  doc.setTextColor(...AZUL_PROF);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(12);
-  doc.text('DATOS DE LA COTIZACIÓN', 18, y + 7);
-
-  y += 16;
-
-  const lineas = [
-    ['Nombre:',              nombre],
-    ['Ocasión:',             ocasion],
-    ['Sabor deseado:',       sabor],
-    ['Porciones aprox.:',    porciones],
-    ['Fecha tentativa:',     fecha],
-    ['Presupuesto aprox.:',  presupuesto]
-  ];
-
-  doc.setFontSize(11);
-  lineas.forEach(([label, value]) => {
-    doc.setFont('helvetica','bold');
-    doc.setTextColor(...AZUL_PROF);
-    doc.text(label, 18, y);
-
-    doc.setFont('helvetica','normal');
-    doc.setTextColor(...GRIS);
-    const valorLineas = doc.splitTextToSize(String(value), 100);
-    doc.text(valorLineas, 75, y);
-
-    y += 6 * valorLineas.length + 2;
-  });
-
-  y += 4;
-
-  doc.setFillColor(232, 244, 253);
-  doc.roundedRect(14, y, pageW - 28, 10, 2, 2, 'F');
-  doc.setTextColor(...AZUL_PROF);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(12);
-  doc.text('DETALLES DE LO QUE DESEA', 18, y + 7);
-
-  y += 16;
-
-  doc.setFont('helvetica','normal');
-  doc.setTextColor(...GRIS);
-  doc.setFontSize(11);
-
-  const descLineas = doc.splitTextToSize(descripcion, pageW - 36);
-  doc.text(descLineas, 18, y);
-
-  y += descLineas.length * 5.5 + 10;
-
-  if(y > 240){
-    doc.addPage();
-    y = 20;
-  }
-
-  doc.setDrawColor(...AZUL_OSCURO);
-  doc.setLineWidth(0.4);
-  doc.line(14, y, pageW - 14, y);
-  y += 8;
-
-  doc.setFillColor(255, 247, 227);
-  doc.setDrawColor(...DORADO);
-  doc.setLineWidth(0.8);
-  doc.roundedRect(14, y, pageW - 28, 20, 3, 3, 'FD');
-
-  doc.setTextColor(138, 100, 16);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(10);
-  doc.text('IMPORTANTE:', 20, y + 7);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(9);
-  const aviso = doc.splitTextToSize(
-    'Adjunta este PDF junto con una captura de pantalla de la conversación de WhatsApp donde enviaste tu idea, para que podamos revisarla y darte una cotización exacta.',
-    pageW - 40
-  );
-  doc.text(aviso, 20, y + 13);
-
-  y += 26;
-
-  doc.setTextColor(...GRIS);
-  doc.setFont('helvetica','italic');
-  doc.setFontSize(9);
-  doc.text('Gracias por tu preferencia. Te contactaremos lo antes posible.', pageW/2, y, { align:'center' });
-  y += 5;
-  doc.text('Pastelería Los Ángeles · Pasteles con amor', pageW/2, y, { align:'center' });
-
-  return { doc, folioCot };
-}
-
-/* ================= DESCARGAR COMPROBANTE (PASO 4) ================= */
-async function descargarComprobante(){
-  try {
-    const doc = await generarPDF();
-    const nombreArchivo = folio + '.pdf';
-
-    // Guardar el PDF en variable global para poder re-descargar
-    archivoPDFPendiente = doc;
-    tipoPDFPendiente = 'pedido';
-
-    doc.save(nombreArchivo);
-
-    guardarPedidoEnStorage();
-
-    setTimeout(() => {
-      mostrarModal({
-        tipo: 'pedido',
-        icon: '📄',
-        title: '¡Comprobante descargado!',
-        text: 'Guarda este PDF. Después de transferir, lo adjuntarás en WhatsApp.',
-        fileName: nombreArchivo,
-        showInstructions: true,
-        onWhatsApp: null
-      });
-    }, 300);
-  } catch(e){
-    console.error(e);
-    alert('No se pudo generar el comprobante. Intenta de nuevo.');
-  }
-}
-
-/* ================= MENSAJE WHATSAPP PEDIDO ================= */
 function construirMensaje(){
+  const tipoEntrega = document.querySelector('input[name="tipo-entrega"]:checked');
+  const entrega = tipoEntrega ? tipoEntrega.value : 'A domicilio';
+  const direccion = val('f-direccion');
+
   return `Hola Pastelería Los Ángeles 🎂
 
-Ya realicé mi transferencia. Adjunto los siguientes archivos:
+Quiero hacer un pedido:
 
-📎 Comprobante de pedido: ${folio}.pdf
-📎 Captura de mi transferencia bancaria
+*Pastel:* ${pastelSeleccionado || '—'}
+*Tipo:* ${tipoSeleccionado || '—'}
+*Sabor:* ${val('f-sabor') || '—'}
+*Tamaño:* ${extraerTamano(pastelSeleccionado) || '—'}
+*Dedicatoria:* ${val('f-dedicatoria') || 'Sin dedicatoria'}
+*Recibe:* ${val('f-nombre') || '—'}
+*Entrega:* ${formatearFecha()}
+*Tipo de entrega:* ${entrega}${entrega === 'A domicilio' && direccion ? `\n*Dirección:* ${direccion}` : ''}
 
-PEDIDO: ${folio}
+*TOTAL:* ${formatearPrecio(precioSeleccionado)}
+*ANTICIPO (50%):* ${formatearPrecio(anticipoSeleccionado)}
+*RESTANTE (al entregar):* ${formatearPrecio(restanteSeleccionado)}
 
-• Pastel: ${pastelSeleccionado || '—'}
-• Sabor: ${val('f-sabor') || '—'}
-• Tamaño: ${val('f-tamano') || '—'}
-• Diseño: ${val('f-diseno') || '—'}
-• Dedicatoria: ${val('f-dedicatoria') || 'Sin dedicatoria'}
-• Recibe: ${val('f-nombre') || '—'}
-• Entrega: ${formatearFecha()}
-
-TOTAL: $${precioSeleccionado}
-ANTICIPO: $${anticipoSeleccionado}
-RESTANTE: $${restanteSeleccionado}
-
-Estado: ANTICIPO POR VERIFICAR`;
+⚠️ *Recuerda:* para que iniciemos a preparar tu pastel necesitas hacer la transferencia del 50% de anticipo a la cuenta Santander.`;
 }
 
 function enviarPorWhatsApp(){
@@ -978,193 +591,97 @@ function enviarPorWhatsApp(){
   window.open(url, '_blank');
 }
 
-/* ================= DESCARGAR PDF (LEGACY) ================= */
-async function descargarPDF(){
-  try {
-    const doc = await generarPDF();
-    doc.save(`${folio}.pdf`);
-  } catch(e){
-    console.error(e);
-    alert('No se pudo generar el PDF. Intenta de nuevo.');
+/* ================= BOTONES EN SECCIÓN "EN EXISTENCIA" ================= */
+function seleccionarSaborExistencia(nombre, precio){
+  const partes = String(nombre).split('·').map(p => p.trim());
+  const tipo = partes[partes.length - 1];
+
+  const base = Object.keys(PASTELES).find(k => nombre.startsWith(k.split(' · ')[0]));
+
+  if(!base){
+    mostrarWizard();
+    pastelSeleccionado = nombre;
+    tipoSeleccionado = tipo;
+    precioSeleccionado = precio;
+    anticipoSeleccionado = Math.round(precio * PORCENTAJE_ANTICIPO);
+    restanteSeleccionado = precio - anticipoSeleccionado;
+    actualizarPreciosLive();
+    const el = document.getElementById('f-pastel');
+    if(el) el.value = nombre;
+    goStep(2);
+    return;
   }
+
+  elegirPastelPedido(base);
+  setTimeout(() => { seleccionarTipo(tipo, precio); }, 200);
 }
 
 /* ================= NUEVO PEDIDO ================= */
 function nuevoPedido(){
-  folio = "PEDIDO-XXX-XXX-XX-XX-XXXX";
   pastelSeleccionado = null;
-  precioSeleccionado = 1500;
-  anticipoSeleccionado = 900;
-  restanteSeleccionado = 600;
+  tipoSeleccionado = null;
+  precioSeleccionado = 0;
+  anticipoSeleccionado = 0;
+  restanteSeleccionado = 0;
 
-  // Limpiar PDF pendiente
-  archivoPDFPendiente = null;
-  tipoPDFPendiente = 'pedido';
-
-  ['f-sabor','f-diseno','f-fecha','f-nombre','f-dedicatoria'].forEach(id => {
+  ['f-pastel','f-tipo-display','f-sabor','f-fecha','f-nombre','f-dedicatoria','f-direccion'].forEach(id => {
     const el = document.getElementById(id);
-    if(el){
-      el.value = '';
-      el.classList.remove('err');
-    }
+    if(el){ el.value = ''; el.classList.remove('err'); }
   });
-  document.getElementById('f-pastel').value = '';
-  document.getElementById('f-tamano').selectedIndex = 1;
-  document.getElementById('f-hora').value = '17:00';
+
+  const selectSabor = document.getElementById('f-sabor');
+  if(selectSabor) selectSabor.innerHTML = '<option value="">Selecciona un sabor</option>';
+
+  const elHora = document.getElementById('f-hora');
+  if(elHora) elHora.value = '17:00';
+
+  const radioDom = document.querySelector('input[name="tipo-entrega"][value="A domicilio"]');
+  if(radioDom) radioDom.checked = true;
+
   document.querySelectorAll('.product-pick').forEach(p => p.classList.remove('selected'));
+  document.querySelectorAll('.tipo-option').forEach(b => b.classList.remove('selected'));
+
+  const grid = document.getElementById('tipoGrid');
+  if(grid) grid.innerHTML = '';
+
+  actualizarPreciosLive();
   goStep(1);
+  ocultarWizard();
 }
 
-/* ================= COTIZACIÓN: SUBIR IMAGEN ================= */
-const fileInput   = document.getElementById('fileInput');
-const fileDrop    = document.getElementById('fileDrop');
-const filePreview = document.getElementById('filePreview');
-const previewImg  = document.getElementById('previewImg');
-const fileName    = document.getElementById('fileName');
-const fileSize    = document.getElementById('fileSize');
+/* ================= COPIAR DATOS BANCARIOS ================= */
+function copiarDatosBancarios(){
+  const texto =
+`DATOS BANCARIOS - PASTELERÍA LOS ÁNGELES
+Banco: ${DATOS_BANCO.banco}
+Titular: ${DATOS_BANCO.titular}
+Tarjeta: ${DATOS_BANCO.tarjeta}
+CLABE: ${DATOS_BANCO.clabe}
 
-if(fileInput){
-  fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if(!file) return;
-    if(!file.type.startsWith('image/')){
-      alert('Por favor selecciona una imagen válida (JPG, PNG).');
-      return;
-    }
-    if(file.size > 8 * 1024 * 1024){
-      alert('La imagen es muy grande. Máximo 8 MB.');
-      return;
-    }
+Envía tu comprobante por WhatsApp para apartar tu fecha.`;
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      cotizacionImagen = {
-        dataURL: ev.target.result,
-        name: file.name,
-        size: file.size
-      };
-      previewImg.src = ev.target.result;
-      fileName.textContent = file.name;
-      fileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
-      filePreview.classList.add('show');
-      fileDrop.style.display = 'none';
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-function quitarImagen(){
-  cotizacionImagen = null;
-  if(fileInput) fileInput.value = '';
-  if(filePreview) filePreview.classList.remove('show');
-  if(fileDrop) fileDrop.style.display = 'block';
-}
-
-if(fileDrop){
-  ['dragenter','dragover'].forEach(ev => {
-    fileDrop.addEventListener(ev, e => {
-      e.preventDefault();
-      fileDrop.style.borderColor = '#FF7A1A';
-      fileDrop.style.background = 'linear-gradient(135deg,#FFF8F2,#FFF0E0)';
-    });
-  });
-  ['dragleave','drop'].forEach(ev => {
-    fileDrop.addEventListener(ev, e => {
-      e.preventDefault();
-      fileDrop.style.borderColor = '';
-      fileDrop.style.background = '';
-    });
-  });
-}
-
-/* ================= ENVIAR COTIZACIÓN ================= */
-async function enviarCotizacion(){
-  const nombre      = document.getElementById('c-nombre').value.trim();
-  const descripcion = document.getElementById('c-descripcion').value.trim();
-
-  if(!nombre){ alert('Por favor escribe tu nombre.'); return; }
-  if(!descripcion){ alert('Cuéntanos qué te gustaría que tuviera tu pastel.'); return; }
-
-  const ocasion     = document.getElementById('c-ocasion').value;
-  const sabor       = document.getElementById('c-sabor') ? document.getElementById('c-sabor').value : '';
-  const porciones   = document.getElementById('c-porciones').value;
-  const fecha       = document.getElementById('c-fecha').value;
-  const presupuesto = document.getElementById('c-presupuesto').value.trim();
-
-  // Mensaje con formato en negritas para WhatsApp (*texto* = negritas)
-  let msg = `Hola Pastelería Los Ángeles 🎂
-
-Quiero cotizar un pastel personalizado:
-
-*Nombre:* ${nombre}
-*Ocasión:* ${ocasion || 'No especificada'}
-*Sabor deseado:* ${sabor || 'No especificado'}
-*Porciones:* ${porciones || 'No especificadas'}
-*Fecha tentativa:* ${fecha || 'Por definir'}
-*Presupuesto:* ${presupuesto || 'Por definir'}
-
-*Descripción / Lo que me gustaría:*
-${descripcion}
-
-📎 Adjunto mi ticket de cotización en PDF${cotizacionImagen ? ' con la imagen de referencia' : ''}.`;
-
-  let pdfNombre = 'Cotizacion.pdf';
-  try {
-    const resultado = await generarPDFCotizacion();
-    pdfNombre = `${resultado.folioCot}.pdf`;
-
-    // Guardar el PDF en variable global para poder re-descargar
-    archivoPDFPendiente = resultado.doc;
-    archivoPDFPendiente._nombreArchivo = pdfNombre;
-    tipoPDFPendiente = 'cotizacion';
-
-    resultado.doc.save(pdfNombre);
-  } catch(e){
-    console.warn('No se pudo generar el PDF de cotización:', e);
-  }
-
-  setTimeout(() => {
-    mostrarModal({
-      tipo: 'cotizacion',
-      icon: '📄',
-      title: '¡Ticket de cotización descargado!',
-      text: 'Guarda tu PDF. Envíalo por WhatsApp para que podamos revisar tu idea.',
-      fileName: pdfNombre,
-      showInstructions: false,
-      mensajeWA: msg,
-      onWhatsApp: null
-    });
-  }, 400);
-}
-
-/* ================= ALMACENAMIENTO DE PEDIDOS ================= */
-function guardarPedidoEnStorage(){
-  try {
-    const pedidos = JSON.parse(localStorage.getItem('pedidos_losangeles') || '{}');
-
-    pedidos[folio] = {
-      folio: folio,
-      nombre: val('f-nombre'),
-      pastel: pastelSeleccionado,
-      sabor: val('f-sabor'),
-      tamano: val('f-tamano'),
-      diseno: val('f-diseno'),
-      dedicatoria: val('f-dedicatoria'),
-      fecha: val('f-fecha'),
-      hora: val('f-hora'),
-      precio: precioSeleccionado,
-      anticipo: anticipoSeleccionado,
-      restante: restanteSeleccionado,
-      creado: new Date().toISOString()
-    };
-
-    localStorage.setItem('pedidos_losangeles', JSON.stringify(pedidos));
-  } catch(e){
-    console.warn('No se pudo guardar el pedido:', e);
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(texto)
+      .then(() => mostrarError('✅ Datos bancarios copiados.', 'Ya puedes pegarlos donde los necesites.'))
+      .catch(() => fallbackCopiar(texto));
+  } else {
+    fallbackCopiar(texto);
   }
 }
 
-/* ================= FAQ TOGGLE ================= */
+function fallbackCopiar(texto){
+  const ta = document.createElement('textarea');
+  ta.value = texto;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); mostrarError('✅ Datos copiados.', 'Ya puedes pegarlos donde los necesites.'); }
+  catch(e){ mostrarError('No se pudieron copiar.', 'Intenta de nuevo.'); }
+  document.body.removeChild(ta);
+}
+
+/* ================= FAQ ================= */
 function toggleFaq(btn){
   const item = btn.parentElement;
   const isOpen = item.classList.contains('open');
@@ -1184,29 +701,81 @@ function toggleFaq(btn){
 
 /* ================= MENÚ MÓVIL ================= */
 const burger = document.getElementById('burger');
-if(burger){
+const menuEl = document.getElementById('menu');
+
+if(burger && menuEl){
   burger.addEventListener('click', () => {
-    document.getElementById('menu').classList.toggle('open');
+    const abierto = menuEl.classList.toggle('open');
+    burger.setAttribute('aria-expanded', abierto ? 'true' : 'false');
   });
 }
+
 document.querySelectorAll('#menu a').forEach(a => {
-  a.addEventListener('click', () => document.getElementById('menu').classList.remove('open'));
+  a.addEventListener('click', () => {
+    if(menuEl) menuEl.classList.remove('open');
+    if(burger) burger.setAttribute('aria-expanded', 'false');
+  });
 });
 
-/* ================= FECHAS MÍNIMAS ================= */
-(function(){
-  const hoy = new Date();
+/* ================= EVENTOS AL CARGAR ================= */
+document.addEventListener('DOMContentLoaded', () => {
 
-  const minPedido = new Date(hoy);
-  minPedido.setDate(minPedido.getDate() + DIAS_MINIMOS);
+  /* --- Selector de tipo del modal de pedido: recarga sabores --- */
+  const pTipo = document.getElementById('p-tipo');
+  if(pTipo){
+    pTipo.addEventListener('change', () => {
+      const tipo = pTipo.value;
+      if(tipo){
+        cargarSaboresPedido(tipo);
+      } else {
+        resetearSaborPedido();
+      }
+    });
+  }
+
+  /* --- Cerrar modales al clic fuera --- */
+  const modalCot = document.getElementById('modalCotizacion');
+  if(modalCot){
+    modalCot.addEventListener('click', (e) => {
+      if(e.target === modalCot) cerrarModalCotizacion();
+    });
+  }
+
+  const modalPed = document.getElementById('modalPedidoPastel');
+  if(modalPed){
+    modalPed.addEventListener('click', (e) => {
+      if(e.target === modalPed) cerrarModalPedido();
+    });
+  }
+
+  const modalErr = document.getElementById('modalError');
+  if(modalErr){
+    modalErr.addEventListener('click', (e) => {
+      if(e.target === modalErr) cerrarModalError();
+    });
+  }
+
+  /* --- ESC cierra modales --- */
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape'){
+      cerrarModalCotizacion();
+      cerrarModalPedido();
+      cerrarModalError();
+    }
+  });
+
+  /* --- Fecha mínima global --- */
+  const fechaMin = calcularFechaMinima();
+
   const fFecha = document.getElementById('f-fecha');
-  if(fFecha) fFecha.min = minPedido.toISOString().split('T')[0];
+  if(fFecha) fFecha.min = fechaMin;
 
-  const minCot = new Date(hoy);
-  minCot.setDate(minCot.getDate() + DIAS_MINIMOS);
   const cFecha = document.getElementById('c-fecha');
-  if(cFecha) cFecha.min = minCot.toISOString().split('T')[0];
-})();
+  if(cFecha) cFecha.min = fechaMin;
+
+  const pFecha = document.getElementById('p-fecha');
+  if(pFecha) pFecha.min = fechaMin;
+});
 
 /* ================= AÑO FOOTER ================= */
 const yearEl = document.getElementById('year');
