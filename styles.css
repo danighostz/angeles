@@ -115,7 +115,6 @@ header{
 .menu a:hover{color:var(--naranja-oscuro)}
 .menu a:hover::after{width:100%}
 
-/* BOTÓN HAMBURGUESA GRANDE */
 .burger{
   display:none;
   background:linear-gradient(135deg,#FFF7E3,#FFEFC7);
@@ -186,7 +185,6 @@ header{
 }
 .hero-btns{display:flex;gap:14px;flex-wrap:wrap}
 
-/* ================= REDES SOCIALES EN HERO ================= */
 .hero-social{
   display:flex;gap:12px;flex-wrap:wrap;
   margin-top:24px;
@@ -414,7 +412,9 @@ section{padding:90px 20px}
 #live-total,
 #live-anticipo,
 #live-restante,
-#banco-anticipo{
+#banco-anticipo,
+#p-precio-fijo,
+#pr-anticipo-monto{
   color:var(--verde-precio) !important;
   font-weight:900;
   text-shadow:
@@ -1105,6 +1105,7 @@ section{padding:90px 20px}
   color:var(--gris);font-size:1.1rem;font-weight:800;
   cursor:pointer;transition:.25s;
   display:grid;place-items:center;
+  z-index:10;
 }
 .modal-close:hover{background:#e05a5a;color:#fff;transform:rotate(90deg)}
 
@@ -1135,7 +1136,6 @@ section{padding:90px 20px}
 .modal form{display:flex;flex-direction:column;}
 .modal .field{margin-bottom:16px;}
 
-/* Modal aviso (aviso amarillo dentro del modal) */
 .modal-aviso{
   background:linear-gradient(135deg,#FFF7E3,#FFEFC7);
   border:2px solid var(--dorado);
@@ -1170,9 +1170,114 @@ section{padding:90px 20px}
   padding:18px 28px;
 }
 
-/* Modal específico para PEDIDO (más ancho) */
 .modal-pedido{
   max-width:620px;
+}
+
+/* ================= BLOQUES SOLO PASTEL / SOLO POSTRE ================= */
+.solo-pastel,
+.solo-postre{
+  display:block;
+}
+
+/* ================= PRECIO FIJO DE POSTRES ================= */
+.precio-fijo-box{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  background:linear-gradient(135deg,#E8F4FD,#D4EBF8);
+  border:2px solid var(--azul);
+  border-radius:14px;
+  padding:14px 18px;
+  margin-bottom:20px;
+  font-size:.9rem;
+  font-weight:700;
+  color:var(--azul-profundo);
+}
+.precio-fijo-box span{
+  font-size:.8rem;
+  letter-spacing:1.4px;
+  text-transform:uppercase;
+  color:var(--naranja-oscuro);
+  font-weight:800;
+}
+.precio-fijo-box b{
+  font-size:1.3rem;
+  color:var(--verde-precio);
+  font-weight:900;
+  text-shadow:
+    0 0 2px #000,
+    1px 1px 0 #000,
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000;
+  -webkit-text-stroke:0.5px #000;
+  letter-spacing:.5px;
+}
+
+/* ================= PASO DE TRANSFERENCIA EN MODAL DE POSTRES ================= */
+.bloque-transferencia-postre{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding-top:8px;
+  animation:fade .35s ease;
+}
+
+.bloque-transferencia-postre .modal-icon{
+  animation:float 3s ease-in-out infinite;
+}
+
+.bloque-transferencia-postre h3{
+  font-family:'Playfair Display',serif;
+  font-size:1.4rem;
+  font-weight:900;
+  color:var(--azul-profundo);
+  text-align:center;
+  margin-bottom:6px;
+  text-shadow:0 1px 1px rgba(255,255,255,.8);
+}
+
+.bloque-transferencia-postre > p{
+  font-size:.9rem;
+  color:var(--gris);
+  text-align:center;
+  margin-bottom:18px;
+  font-weight:500;
+  line-height:1.65;
+}
+
+.bloque-transferencia-postre .bank-card-info{
+  margin-bottom:20px;
+}
+
+.bloque-transferencia-postre .modal-aviso{
+  margin-bottom:22px;
+}
+
+/* ================= BOTONES DEL BLOQUE DE TRANSFERENCIA ================= */
+.modal-btns{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:8px;
+}
+.modal-btns .btn{
+  width:100%;
+  padding:16px 22px;
+  font-size:.95rem;
+}
+.modal-btns .btn-ghost{
+  background:#fff;
+  color:var(--gris);
+  border:2px solid #B8D4E8;
+  font-weight:700;
+  text-shadow:0 1px 1px rgba(255,255,255,.9);
+}
+.modal-btns .btn-ghost:hover{
+  border-color:var(--naranja);
+  color:var(--naranja-oscuro);
 }
 
 /* ================= MODAL DE ERROR ================= */
@@ -1437,6 +1542,48 @@ footer .copy{
   100%{box-shadow:0 12px 32px rgba(18,140,126,.55), 0 0 0 0 rgba(37,211,102,0)}
 }
 
+/* ================= MENÚ DE PASTELES Y SABORES ================= */
+#menu-pasteles{
+  background:linear-gradient(160deg,var(--azul-claro) 0%,#fff 100%);
+}
+.menu-img-wrap{
+  max-width:900px;
+  margin:0 auto 32px;
+  background:#fff;
+  border-radius:22px;
+  padding:18px;
+  border:3px solid var(--dorado);
+  box-shadow:0 22px 56px rgba(15,58,92,.25);
+  overflow:hidden;
+}
+.menu-img-wrap img{
+  width:100%;
+  height:auto;
+  display:block;
+  border-radius:14px;
+  transition:.4s;
+}
+.menu-img-wrap:hover img{transform:scale(1.02)}
+.menu-download{
+  display:flex;
+  gap:16px;
+  justify-content:center;
+  flex-wrap:wrap;
+  max-width:640px;
+  margin:0 auto;
+}
+.menu-download .btn{
+  min-width:240px;
+  flex:1;
+}
+
+/* ================= TARJETA DE DOMICILIO ================= */
+.contact-card-domicilio{
+  background:linear-gradient(160deg,#FFF8F2,#FFE8D6) !important;
+  border-color:var(--naranja) !important;
+}
+.contact-card-domicilio .ic{color:var(--naranja-oscuro)}
+
 /* ================= RESPONSIVE ================= */
 @media(max-width:900px){
   .hero-inner{grid-template-columns:1fr;text-align:center;gap:40px}
@@ -1467,6 +1614,8 @@ footer .copy{
   .cakes-grid-existencia{
     grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
   }
+
+  .menu-download .btn{min-width:0;width:100%}
 }
 
 @media(max-width:640px){
@@ -1538,4 +1687,14 @@ footer .copy{
     height:52px;
     font-size:1.85rem;
   }
+
+  .precio-fijo-box{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:6px;
+  }
+  .precio-fijo-box b{font-size:1.15rem}
+
+  .bloque-transferencia-postre h3{font-size:1.2rem}
+  .modal-btns .btn{padding:14px 18px;font-size:.88rem}
 }

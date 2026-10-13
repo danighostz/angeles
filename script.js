@@ -34,6 +34,15 @@ const PASTELES = {
   }
 };
 
+/* ================= CATÁLOGO DE POSTRES ================= */
+const POSTRES = {
+  'Gelatina Mosaico':    { precio: 150, desc: 'Gelatina de mosaico artesanal' },
+  'Chocoflan':           { precio: 400, desc: 'Pastel de chocolate con flan' },
+  'Gelatina con Fruta':  { precio: 350, desc: 'Gelatina con fruta fresca' },
+  'Pudín':               { precio: 370, desc: 'Pudín casero con caramelo' },
+  'Flan Chico':          { precio: 400, desc: 'Flan individual casero' }
+};
+
 /* ================= SABORES POR TIPO ================= */
 const SABORES = {
   'Básico': [
@@ -71,6 +80,12 @@ let precioSeleccionado = 0;
 let anticipoSeleccionado = 0;
 let restanteSeleccionado = 0;
 
+// Estado para postres
+let postreSeleccionado = null;
+let precioPostre = 0;
+let anticipoPostre = 0;
+let restantePostre = 0;
+
 /* ================= HELPERS ================= */
 const val = id => {
   const el = document.getElementById(id);
@@ -93,7 +108,11 @@ function calcularFechaMinima(){
   return minFecha.toISOString().split('T')[0];
 }
 
-/* ================= MODAL DE ERROR (SIN ALERT) ================= */
+function hoyISO(){
+  return new Date().toISOString().split('T')[0];
+}
+
+/* ================= MODAL DE ERROR ================= */
 function mostrarError(mensaje, detalle){
   const modal = document.getElementById('modalError');
   if(!modal){
@@ -138,8 +157,8 @@ function scrollAlWizard(){
   }, 120);
 }
 
-/* ================= MODAL PEDIDO (POR PEDIDO) ================= */
-function abrirModalPedido(nombrePastel){
+/* ================= MODAL PEDIDO (PASTELES Y POSTRES) ================= */
+function abrirModalPedido(nombre){
   const modal = document.getElementById('modalPedidoPastel');
   if(!modal) return;
 
@@ -147,15 +166,47 @@ function abrirModalPedido(nombrePastel){
   if(form) form.reset();
 
   const el = document.getElementById('p-pastel');
-  if(el) el.value = nombrePastel;
+  if(el) el.value = nombre;
 
-  setTxt('pedidoTitulo', `Pedir: ${nombrePastel}`);
+  // Detectar si es postre
+  const esPostre = Object.prototype.hasOwnProperty.call(POSTRES, nombre);
 
-  const fechaInput = document.getElementById('p-fecha');
-  if(fechaInput) fechaInput.min = calcularFechaMinima();
+  if(esPostre){
+    // Configurar modal como POSTRE
+    postreSeleccionado = nombre;
+    precioPostre = POSTRES[nombre].precio;
+    anticipoPostre = Math.round(precioPostre * PORCENTAJE_ANTICIPO);
+    restantePostre = precioPostre - anticipoPostre;
 
-  // Resetear selector de sabor (depende del tipo)
-  resetearSaborPedido();
+    setTxt('pedidoTitulo', `Pedir postre: ${nombre}`);
+
+    // Ocultar campos de pastel
+    ocultarCamposPastel();
+    // Mostrar campos de postre
+    mostrarCamposPostre();
+
+    // Llenar etiqueta de precio fijo
+    const lbl = document.getElementById('p-precio-fijo');
+    if(lbl) lbl.textContent = `${formatearPrecio(precioPostre)} (anticipo 50%: ${formatearPrecio(anticipoPostre)})`;
+
+    // Fecha mínima: HOY (los postres no requieren anticipación)
+    const fechaInput = document.getElementById('p-fecha-postre');
+    if(fechaInput) fechaInput.min = hoyISO();
+
+  } else {
+    // Configurar modal como PASTEL (comportamiento original)
+    postreSeleccionado = null;
+
+    setTxt('pedidoTitulo', `Pedir: ${nombre}`);
+
+    mostrarCamposPastel();
+    ocultarCamposPostre();
+
+    const fechaInput = document.getElementById('p-fecha');
+    if(fechaInput) fechaInput.min = calcularFechaMinima();
+
+    resetearSaborPedido();
+  }
 
   modal.classList.add('show');
   modal.setAttribute('aria-hidden', 'false');
@@ -170,6 +221,24 @@ function cerrarModalPedido(){
   document.body.style.overflow = '';
 }
 
+/* ================= MOSTRAR / OCULTAR CAMPOS ================= */
+function ocultarCamposPastel(){
+  document.querySelectorAll('.solo-pastel').forEach(el => el.style.display = 'none');
+}
+
+function mostrarCamposPastel(){
+  document.querySelectorAll('.solo-pastel').forEach(el => el.style.display = '');
+}
+
+function mostrarCamposPostre(){
+  document.querySelectorAll('.solo-postre').forEach(el => el.style.display = '');
+}
+
+function ocultarCamposPostre(){
+  document.querySelectorAll('.solo-postre').forEach(el => el.style.display = 'none');
+}
+
+/* ================= SABORES (PASTELES) ================= */
 function resetearSaborPedido(){
   const select = document.getElementById('p-sabor');
   if(!select) return;
@@ -196,8 +265,14 @@ function cargarSaboresPedido(tipo){
   });
 }
 
-/* ================= ENVIAR PEDIDO ================= */
+/* ================= ENVIAR PEDIDO (PASTEL) ================= */
 function enviarPedidoPastel(){
+  // Si es postre, redirigir al flujo de postre
+  if(postreSeleccionado){
+    enviarPedidoPostre();
+    return;
+  }
+
   const pastel      = val('p-pastel');
   const nombre      = val('p-nombre');
   const telefono    = val('p-telefono');
@@ -236,7 +311,6 @@ function enviarPedidoPastel(){
     return;
   }
 
-  // Validar fecha mínima
   const fechaEvento = new Date(fecha + 'T00:00:00');
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const diff = Math.ceil((fechaEvento - hoy) / 86400000);
@@ -248,7 +322,7 @@ function enviarPedidoPastel(){
 
   const mensaje = `Hola Pastelería Los Ángeles 🎂
 
-Quiero pedir un *${pastel}*.
+Quiero cotizar un *${pastel}*.
 
 *Nombre:* ${nombre}${telefono ? `\n*WhatsApp:* ${telefono}` : ''}
 *Tipo:* ${tipo}
@@ -257,10 +331,129 @@ Quiero pedir un *${pastel}*.
 *Fecha del evento:* ${fecha}${hora ? ` a las ${hora}` : ''}
 *Tipo de entrega:* ${entrega}${entrega === 'A domicilio' && direccion ? `\n*Dirección:* ${direccion}` : ''}${dedicatoria ? `\n*Dedicatoria:* ${dedicatoria}` : ''}
 
-📸 *Recuerda abjuntar captura del pastel.`;
+📸 *Recuerda adjuntar captura del pastel.`;
 
   const url = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(mensaje)}`;
   cerrarModalPedido();
+  setTimeout(() => window.open(url, '_blank'), 200);
+}
+
+/* ================= ENVIAR PEDIDO (POSTRE) ================= */
+function enviarPedidoPostre(){
+  const nombre    = val('pr-nombre');
+  const telefono  = val('pr-telefono');
+  const direccion = val('pr-direccion');
+  const fecha     = val('pr-fecha');
+  const hora      = val('pr-hora');
+  const nota      = val('pr-nota');
+
+  if(!nombre){
+    mostrarError('Favor de completar todos los campos obligatorios.', 'Falta tu nombre.');
+    document.getElementById('pr-nombre').focus();
+    return;
+  }
+  if(!direccion){
+    mostrarError('Favor de completar todos los campos obligatorios.', 'Falta la dirección de entrega.');
+    document.getElementById('pr-direccion').focus();
+    return;
+  }
+  if(!fecha){
+    mostrarError('Favor de completar todos los campos obligatorios.', 'Falta la fecha en que lo quieres.');
+    document.getElementById('pr-fecha').focus();
+    return;
+  }
+
+  // Mostrar paso de transferencia
+  mostrarPasoTransferenciaPostre();
+}
+
+/* ================= PASO DE TRANSFERENCIA (POSTRES) ================= */
+function mostrarPasoTransferenciaPostre(){
+  const modal = document.getElementById('modalPedidoPastel');
+  if(!modal) return;
+
+  // Ocultar el formulario de postre
+  const form = document.getElementById('formPedido');
+  if(form) form.style.display = 'none';
+
+  // Crear o mostrar el bloque de transferencia
+  let bloque = document.getElementById('bloqueTransferenciaPostre');
+  if(!bloque){
+    bloque = document.createElement('div');
+    bloque.id = 'bloqueTransferenciaPostre';
+    bloque.className = 'bloque-transferencia-postre';
+    bloque.innerHTML = `
+      <div class="modal-icon">💳</div>
+      <h3>Realiza tu anticipo</h3>
+      <p>Para apartar tu postre, transfiere el <b>50%</b> de anticipo:</p>
+
+      <div class="bank-card-info">
+        <div class="bank-line"><span>Banco</span><b>${DATOS_BANCO.banco}</b></div>
+        <div class="bank-line"><span>Titular</span><b>${DATOS_BANCO.titular}</b></div>
+        <div class="bank-line"><span>Tarjeta</span><b>${DATOS_BANCO.tarjeta}</b></div>
+        <div class="bank-line"><span>CLABE</span><b>${DATOS_BANCO.clabe}</b></div>
+        <div class="bank-line bank-line-monto"><span>Monto a transferir (50%)</span><b id="pr-anticipo-monto">${formatearPrecio(anticipoPostre)}</b></div>
+      </div>
+
+      <div class="modal-aviso">
+        ⚠️ <b>Importante:</b> envía tu comprobante por WhatsApp para que verifiquemos y comencemos a preparar tu postre.
+      </div>
+
+      <div class="modal-btns">
+        <button type="button" class="btn btn-primary" onclick="copiarDatosBancarios()">📋 Copiar datos bancarios</button>
+        <button type="button" class="btn btn-wa btn-wa-grande" onclick="confirmarTransferenciaPostre()">
+          <svg class="ico-wa" aria-hidden="true"><use href="#ico-wa"/></svg>
+          ✅ Ya transferí, enviar pedido
+        </button>
+        <button type="button" class="btn btn-ghost" onclick="volverFormularioPostre()">← Volver</button>
+      </div>
+    `;
+    modal.querySelector('.modal').appendChild(bloque);
+  } else {
+    bloque.style.display = 'block';
+    const monto = document.getElementById('pr-anticipo-monto');
+    if(monto) monto.textContent = formatearPrecio(anticipoPostre);
+  }
+}
+
+function volverFormularioPostre(){
+  const bloque = document.getElementById('bloqueTransferenciaPostre');
+  if(bloque) bloque.style.display = 'none';
+  const form = document.getElementById('formPedido');
+  if(form) form.style.display = '';
+}
+
+function confirmarTransferenciaPostre(){
+  const nombre    = val('pr-nombre');
+  const telefono  = val('pr-telefono');
+  const direccion = val('pr-direccion');
+  const fecha     = val('pr-fecha');
+  const hora      = val('pr-hora');
+  const nota      = val('pr-nota');
+
+  const mensaje = `Hola Pastelería Los Ángeles 🍮
+
+Quiero pedir un *${postreSeleccionado}*.
+
+*Precio:* ${formatearPrecio(precioPostre)}
+*Anticipo (50%):* ${formatearPrecio(anticipoPostre)}
+*Restante al entregar:* ${formatearPrecio(restantePostre)}
+
+*Nombre:* ${nombre}${telefono ? `\n*WhatsApp:* ${telefono}` : ''}
+*Dirección:* ${direccion}
+*Fecha de entrega:* ${fecha}${hora ? ` a las ${hora}` : ''}${nota ? `\n*Nota:* ${nota}` : ''}
+
+✅ *Ya realicé la transferencia del anticipo.* Adjunto comprobante.`;
+
+  const url = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(mensaje)}`;
+
+  // Cerrar modal y limpiar bloque
+  cerrarModalPedido();
+  const bloque = document.getElementById('bloqueTransferenciaPostre');
+  if(bloque) bloque.remove();
+  const form = document.getElementById('formPedido');
+  if(form) form.style.display = '';
+
   setTimeout(() => window.open(url, '_blank'), 200);
 }
 
@@ -307,7 +500,6 @@ function enviarCotizacion(){
     return;
   }
 
-  // Validar fecha si la escribió
   if(fecha){
     const fechaEvento = new Date(fecha + 'T00:00:00');
     const hoy = new Date(); hoy.setHours(0,0,0,0);
@@ -624,7 +816,17 @@ function nuevoPedido(){
   anticipoSeleccionado = 0;
   restanteSeleccionado = 0;
 
+  postreSeleccionado = null;
+  precioPostre = 0;
+  anticipoPostre = 0;
+  restantePostre = 0;
+
   ['f-pastel','f-tipo-display','f-sabor','f-fecha','f-nombre','f-dedicatoria','f-direccion'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){ el.value = ''; el.classList.remove('err'); }
+  });
+
+  ['pr-nombre','pr-telefono','pr-direccion','pr-fecha','pr-nota'].forEach(id => {
     const el = document.getElementById(id);
     if(el){ el.value = ''; el.classList.remove('err'); }
   });
@@ -635,6 +837,9 @@ function nuevoPedido(){
   const elHora = document.getElementById('f-hora');
   if(elHora) elHora.value = '17:00';
 
+  const elHoraPostre = document.getElementById('pr-hora');
+  if(elHoraPostre) elHoraPostre.value = '17:00';
+
   const radioDom = document.querySelector('input[name="tipo-entrega"][value="A domicilio"]');
   if(radioDom) radioDom.checked = true;
 
@@ -643,6 +848,12 @@ function nuevoPedido(){
 
   const grid = document.getElementById('tipoGrid');
   if(grid) grid.innerHTML = '';
+
+  const bloque = document.getElementById('bloqueTransferenciaPostre');
+  if(bloque) bloque.remove();
+
+  const form = document.getElementById('formPedido');
+  if(form) form.style.display = '';
 
   actualizarPreciosLive();
   goStep(1);
@@ -720,7 +931,6 @@ document.querySelectorAll('#menu a').forEach(a => {
 /* ================= EVENTOS AL CARGAR ================= */
 document.addEventListener('DOMContentLoaded', () => {
 
-  /* --- Selector de tipo del modal de pedido: recarga sabores --- */
   const pTipo = document.getElementById('p-tipo');
   if(pTipo){
     pTipo.addEventListener('change', () => {
@@ -733,7 +943,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  /* --- Cerrar modales al clic fuera --- */
   const modalCot = document.getElementById('modalCotizacion');
   if(modalCot){
     modalCot.addEventListener('click', (e) => {
@@ -755,7 +964,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  /* --- ESC cierra modales --- */
   document.addEventListener('keydown', (e) => {
     if(e.key === 'Escape'){
       cerrarModalCotizacion();
@@ -764,7 +972,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  /* --- Fecha mínima global --- */
   const fechaMin = calcularFechaMinima();
 
   const fFecha = document.getElementById('f-fecha');
@@ -775,6 +982,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const pFecha = document.getElementById('p-fecha');
   if(pFecha) pFecha.min = fechaMin;
+
+  const prFecha = document.getElementById('pr-fecha');
+  if(prFecha) prFecha.min = hoyISO();
 });
 
 /* ================= AÑO FOOTER ================= */
